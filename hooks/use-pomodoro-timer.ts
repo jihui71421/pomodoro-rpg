@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+import { getTodayDateString, loadAppData, saveAppData } from '@/storage/app-storage';
+import { applyExpGain, EXP_PER_FOCUS_SESSION, LevelProgress } from '@/storage/leveling';
 
 // 집중 시간(초) : 25분
 const FOCUS_SECONDS = 25 * 60;
@@ -30,6 +33,57 @@ export function usePomodoroTimer() {
   const [isRunning, setIsRunning] = useState(false);
   // 오늘 완료한 "집중" 횟수 (휴식 완료는 세지 않음)
   const [completedFocusCount, setCompletedFocusCount] = useState(0);
+  // 오늘 집중을 완료한 시각들의 목록 (ISO 8601 문자열). 완료할 때마다 뒤에 하나씩 추가된다.
+  const [completedTimes, setCompletedTimes] = useState<string[]>([]);
+  // 캐릭터의 레벨과 경험치. level/exp를 따로 관리하지 않고 하나로 묶어두면,
+  // "경험치를 얻어서 레벨업까지 계산하는" 작업을 한 번에 안전하게 처리할 수 있다.
+  const [levelProgress, setLevelProgress] = useState<LevelProgress>({ level: 1, exp: 0 });
+
+  // AsyncStorage에서 저장된 데이터를 아직 불러오는 중인지 여부.
+  // 이 값이 true인 동안에는 completedFocusCount가 바뀌어도 저장하지 않는다.
+  // (그렇지 않으면, 불러오기가 끝나기 전의 기본값 0이 먼저 저장되어서
+  //  저장해뒀던 값을 덮어써버리는 문제가 생길 수 있다.)
+  const isLoadedRef = useRef(false);
+
+  // 앱이 처음 실행될 때(마운트될 때) 한 번, AsyncStorage에 저장된 데이터를 불러온다.
+  useEffect(() => {
+    let isCancelled = false;
+
+    loadAppData().then((data) => {
+      // 불러오는 도중에 화면이 사라졌다면(unmount) 상태를 업데이트하지 않는다.
+      if (isCancelled) return;
+
+      setCompletedFocusCount(data.today.completedFocusCount);
+      setCompletedTimes(data.today.completedTimes);
+      setLevelProgress({ level: data.level, exp: data.exp });
+      isLoadedRef.current = true;
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // completedFocusCount(오늘 집중 완료 횟수), completedTimes(완료 시간 목록),
+  // levelProgress(레벨/경험치) 중 하나라도 바뀔 때마다 AsyncStorage에 자동으로 저장한다.
+  // 학습 종료 버튼, 리셋 버튼은 이 값들을 바꾸지 않으므로 저장에 영향을 주지 않는다.
+  useEffect(() => {
+    // 아직 저장된 데이터를 불러오는 중이면(최초 렌더링) 저장을 건너뛴다.
+    if (!isLoadedRef.current) return;
+
+    // 저장 구조는 storage/app-storage.ts의 AppStorageData 타입을 따른다.
+    // 나중에 character 등을 추가하려면 여기서 함께 저장하면 된다.
+    saveAppData({
+      version: 1,
+      level: levelProgress.level,
+      exp: levelProgress.exp,
+      today: {
+        date: getTodayDateString(),
+        completedFocusCount,
+        completedTimes,
+      },
+    });
+  }, [completedFocusCount, completedTimes, levelProgress]);
 
   // 1초마다 남은 시간을 1씩 줄여주는 부분
   // isRunning이 true일 때만 setInterval을 동작시키고, false가 되면 정리(clearInterval)한다.
@@ -51,11 +105,14 @@ export function usePomodoroTimer() {
     if (secondsLeft > 0) return;
 
     if (mode === 'focus') {
-      // 집중 시간이 끝났으므로 완료 횟수를 1 늘리고, 휴식 모드로 전환한다.
+      // 집중 시간이 끝났으므로 완료 횟수를 1 늘리고, 완료한 시각을 기록하고,
+      // 경험치(EXP)를 얻은 뒤(필요하면 레벨업까지 처리) 휴식 모드로 전환한다.
       // 단, 휴식 타이머는 자동으로 시작하지 않는다.
       // isRunning을 false로 만들어서, 사용자가 '휴식 시작' 버튼을 직접 눌러야
       // 휴식 타이머가 움직이도록 한다.
       setCompletedFocusCount((count) => count + 1);
+      setCompletedTimes((times) => [...times, new Date().toISOString()]);
+      setLevelProgress((progress) => applyExpGain(progress, EXP_PER_FOCUS_SESSION));
       setMode('break');
       setSecondsLeft(BREAK_SECONDS);
       setIsRunning(false);
@@ -107,6 +164,9 @@ export function usePomodoroTimer() {
     secondsLeft,
     isRunning,
     completedFocusCount,
+    completedTimes,
+    level: levelProgress.level,
+    exp: levelProgress.exp,
     start,
     pause,
     reset,
