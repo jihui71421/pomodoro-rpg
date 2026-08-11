@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 import { EndStudyConfirmModal } from '@/components/pomodoro/end-study-confirm-modal';
 import { FocusSummary } from '@/components/pomodoro/focus-summary';
 import { LevelStatus } from '@/components/pomodoro/level-status';
+import { LevelUpModal } from '@/components/pomodoro/level-up-modal';
 import { TimerControls } from '@/components/pomodoro/timer-controls';
 import { TimerDisplay } from '@/components/pomodoro/timer-display';
 import { ThemedView } from '@/components/themed-view';
@@ -19,11 +20,13 @@ export default function HomeScreen() {
     completedTimes,
     level,
     exp,
+    levelUpLevel,
     start,
     pause,
     reset,
     skipBreak,
     endStudy,
+    dismissLevelUp,
   } = usePomodoroTimer();
 
   // '학습 종료' 확인 팝업을 보여줄지 여부.
@@ -74,6 +77,9 @@ export default function HomeScreen() {
         onCancel={handleCancelEndStudy}
         onConfirm={handleConfirmEndStudy}
       />
+
+      {/* levelUpLevel이 null이 아닐 때만(=집중 완료로 실제 레벨업이 발생했을 때만) 표시된다. */}
+      <LevelUpModal visible={levelUpLevel !== null} level={levelUpLevel ?? level} onClose={dismissLevelUp} />
     </ThemedView>
   );
 }

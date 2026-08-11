@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { getTodayDateString, loadAppData, saveAppData } from '@/storage/app-storage';
+import { getTodayDateString, loadAppData, recordFocusCompletion, saveAppData, StudyHistory } from '@/storage/app-storage';
 import { applyExpGain, EXP_PER_FOCUS_SESSION, LevelProgress } from '@/storage/leveling';
 
 // 집중 시간(초) : 25분
@@ -35,15 +35,29 @@ export function usePomodoroTimer() {
   const [completedFocusCount, setCompletedFocusCount] = useState(0);
   // 오늘 집중을 완료한 시각들의 목록 (ISO 8601 문자열). 완료할 때마다 뒤에 하나씩 추가된다.
   const [completedTimes, setCompletedTimes] = useState<string[]>([]);
+  // 날짜별 학습 기록. key는 'YYYY-MM-DD' 문자열이며, 캘린더 화면(app/(tabs)/calendar.tsx)이
+  // AsyncStorage에서 이 값을 다시 불러와 "공부한 날짜 표시"와 "날짜별 상세 기록"에 사용한다.
+  const [history, setHistory] = useState<StudyHistory>({});
   // 캐릭터의 레벨과 경험치. level/exp를 따로 관리하지 않고 하나로 묶어두면,
   // "경험치를 얻어서 레벨업까지 계산하는" 작업을 한 번에 안전하게 처리할 수 있다.
   const [levelProgress, setLevelProgress] = useState<LevelProgress>({ level: 1, exp: 0 });
+  // 방금 레벨업으로 도달한 레벨. null이면 레벨업 모달을 보여주지 않는다.
+  // (레벨이 오르지 않은 일반적인 집중 완료에서는 계속 null로 유지된다.)
+  const [levelUpLevel, setLevelUpLevel] = useState<number | null>(null);
 
   // AsyncStorage에서 저장된 데이터를 아직 불러오는 중인지 여부.
   // 이 값이 true인 동안에는 completedFocusCount가 바뀌어도 저장하지 않는다.
   // (그렇지 않으면, 불러오기가 끝나기 전의 기본값 0이 먼저 저장되어서
   //  저장해뒀던 값을 덮어써버리는 문제가 생길 수 있다.)
   const isLoadedRef = useRef(false);
+
+  // "집중 완료 처리" 효과(아래)는 secondsLeft/mode가 바뀔 때만 실행되어야 하므로
+  // levelProgress를 그 효과의 의존성 배열에 넣지 않는다. 대신 항상 최신 값을
+  // 참조할 수 있도록 ref에 levelProgress를 미러링해둔다.
+  const levelProgressRef = useRef(levelProgress);
+  useEffect(() => {
+    levelProgressRef.current = levelProgress;
+  }, [levelProgress]);
 
   // 앱이 처음 실행될 때(마운트될 때) 한 번, AsyncStorage에 저장된 데이터를 불러온다.
   useEffect(() => {
@@ -56,6 +70,7 @@ export function usePomodoroTimer() {
       setCompletedFocusCount(data.today.completedFocusCount);
       setCompletedTimes(data.today.completedTimes);
       setLevelProgress({ level: data.level, exp: data.exp });
+      setHistory(data.history);
       isLoadedRef.current = true;
     });
 
@@ -65,8 +80,8 @@ export function usePomodoroTimer() {
   }, []);
 
   // completedFocusCount(오늘 집중 완료 횟수), completedTimes(완료 시간 목록),
-  // levelProgress(레벨/경험치) 중 하나라도 바뀔 때마다 AsyncStorage에 자동으로 저장한다.
-  // 학습 종료 버튼, 리셋 버튼은 이 값들을 바꾸지 않으므로 저장에 영향을 주지 않는다.
+  // levelProgress(레벨/경험치), history(날짜별 기록) 중 하나라도 바뀔 때마다 AsyncStorage에
+  // 자동으로 저장한다. 학습 종료 버튼, 리셋 버튼은 이 값들을 바꾸지 않으므로 저장에 영향을 주지 않는다.
   useEffect(() => {
     // 아직 저장된 데이터를 불러오는 중이면(최초 렌더링) 저장을 건너뛴다.
     if (!isLoadedRef.current) return;
@@ -82,8 +97,9 @@ export function usePomodoroTimer() {
         completedFocusCount,
         completedTimes,
       },
+      history,
     });
-  }, [completedFocusCount, completedTimes, levelProgress]);
+  }, [completedFocusCount, completedTimes, levelProgress, history]);
 
   // 1초마다 남은 시간을 1씩 줄여주는 부분
   // isRunning이 true일 때만 setInterval을 동작시키고, false가 되면 정리(clearInterval)한다.
@@ -110,9 +126,23 @@ export function usePomodoroTimer() {
       // 단, 휴식 타이머는 자동으로 시작하지 않는다.
       // isRunning을 false로 만들어서, 사용자가 '휴식 시작' 버튼을 직접 눌러야
       // 휴식 타이머가 움직이도록 한다.
+      const completedAt = new Date().toISOString();
       setCompletedFocusCount((count) => count + 1);
-      setCompletedTimes((times) => [...times, new Date().toISOString()]);
-      setLevelProgress((progress) => applyExpGain(progress, EXP_PER_FOCUS_SESSION));
+      setCompletedTimes((times) => [...times, completedAt]);
+      // 오늘 집중 횟수/완료 시간과 별개로, 날짜별 기록(history)에도 같은 완료 내역을 추가한다.
+      // 캘린더 화면은 이 history를 통해 "공부한 날짜 표시"와 "날짜별 상세 기록"을 보여준다.
+      setHistory((prevHistory) => recordFocusCompletion(prevHistory, getTodayDateString(), completedAt));
+
+      // 레벨업 여부를 판단하려면 "얻기 전" 레벨과 "얻은 후" 레벨을 비교해야 하므로,
+      // applyExpGain()의 결과를 먼저 변수로 계산한 뒤 상태를 갱신한다.
+      // (레벨업 계산 로직 자체는 applyExpGain()을 그대로 사용하고 수정하지 않는다.)
+      const previousLevelProgress = levelProgressRef.current;
+      const nextLevelProgress = applyExpGain(previousLevelProgress, EXP_PER_FOCUS_SESSION);
+      setLevelProgress(nextLevelProgress);
+      if (nextLevelProgress.level > previousLevelProgress.level) {
+        setLevelUpLevel(nextLevelProgress.level);
+      }
+
       setMode('break');
       setSecondsLeft(BREAK_SECONDS);
       setIsRunning(false);
@@ -159,18 +189,24 @@ export function usePomodoroTimer() {
     resetToIdleFocus();
   };
 
+  // 레벨업 모달의 '확인' 버튼: 모달만 닫는다. 레벨/경험치/기록 등 다른 상태는 건드리지 않는다.
+  const dismissLevelUp = () => setLevelUpLevel(null);
+
   return {
     mode,
     secondsLeft,
     isRunning,
     completedFocusCount,
     completedTimes,
+    history,
     level: levelProgress.level,
     exp: levelProgress.exp,
+    levelUpLevel,
     start,
     pause,
     reset,
     skipBreak,
     endStudy,
+    dismissLevelUp,
   };
 }
