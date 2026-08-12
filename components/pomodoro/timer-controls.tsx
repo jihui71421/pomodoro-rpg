@@ -1,7 +1,6 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { RPGButton } from '@/components/pomodoro/rpg-button';
 
 type TimerControlsProps = {
   isRunning: boolean;
@@ -16,8 +15,11 @@ type TimerControlsProps = {
   onEndStudyPress: () => void;
 };
 
-// 시작/일시정지, 리셋, (휴식 중일 때만) 휴식 건너뛰기, 학습 종료 버튼을 모아둔 컴포넌트.
-// 실제로 상태를 바꾸지는 않고, 버튼이 눌렸을 때 부모가 넘겨준 함수를 호출하기만 한다.
+// Figma Make 원본(App.tsx)의 버튼 행 + '학습 종료' 버튼을 그대로 옮긴 것.
+// 원본처럼 자체 패널 없이, 버튼 행(시작/일시정지, 리셋, 휴식 건너뛰기)과
+// 학습 종료 버튼을 별도 줄로 나눈다. 버튼이 눌렸을 때 호출하는 함수(로직)는
+// 그대로이고 RPGButton으로 모양만 바꿨다. 원본 색 배정: 시작/휴식시작=blue,
+// 일시정지=gold, 리셋=gray, 휴식건너뛰기=purple, 학습종료=red.
 export function TimerControls({
   isRunning,
   isFocusMode,
@@ -29,65 +31,42 @@ export function TimerControls({
   onEndStudyPress,
 }: TimerControlsProps) {
   return (
-    <ThemedView style={styles.buttonRow}>
-      {isRunning ? (
-        <Pressable style={[styles.button, styles.pauseButton]} onPress={onPause}>
-          <ThemedText style={styles.buttonText}>일시정지</ThemedText>
-        </Pressable>
-      ) : (
-        <Pressable style={[styles.button, styles.startButton]} onPress={onStart}>
-          <ThemedText style={styles.buttonText}>{startButtonLabel}</ThemedText>
-        </Pressable>
-      )}
+    <View style={styles.container}>
+      <View style={styles.buttonRow}>
+        {isRunning ? (
+          <RPGButton label="일시정지" variant="gold" onPress={onPause} />
+        ) : (
+          <RPGButton label={startButtonLabel} variant="blue" onPress={onStart} />
+        )}
 
-      <Pressable style={[styles.button, styles.resetButton]} onPress={onReset}>
-        <ThemedText style={styles.buttonText}>리셋</ThemedText>
-      </Pressable>
+        <RPGButton label="리셋" variant="gray" onPress={onReset} />
 
-      {/* 휴식 모드일 때만 '휴식 건너뛰기' 버튼을 보여준다. */}
-      {!isFocusMode && (
-        <Pressable style={[styles.button, styles.skipButton]} onPress={onSkipBreak}>
-          <ThemedText style={styles.buttonText}>휴식 건너뛰기</ThemedText>
-        </Pressable>
-      )}
+        {/* 휴식 모드일 때만 '휴식 건너뛰기' 버튼을 보여준다. */}
+        {!isFocusMode && <RPGButton label="휴식 건너뛰기" variant="purple" onPress={onSkipBreak} />}
+      </View>
 
       {/* '학습 종료' 버튼: 집중/휴식 모드 상관없이 항상 보여준다. */}
-      <Pressable style={[styles.button, styles.endButton]} onPress={onEndStudyPress}>
-        <ThemedText style={styles.buttonText}>학습 종료</ThemedText>
-      </Pressable>
-    </ThemedView>
+      <RPGButton label="학습 종료" variant="red" onPress={onEndStudyPress} style={styles.endButton} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 12,
+  },
+  // RPGButton은 여러 개를 가로로 나열할 때(buttonRow)를 기준으로 기본값이
+  // alignSelf:'flex-start'라서, 세로로 혼자 놓이는 이 버튼만 왼쪽에 붙어버린다.
+  // 다른 버튼/레이아웃은 건드리지 않고 이 버튼 하나만 가운데로 오버라이드한다.
+  endButton: {
+    alignSelf: 'center',
+  },
   buttonRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 12,
-  },
-  button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  startButton: {
-    backgroundColor: '#0a7ea4',
-  },
-  pauseButton: {
-    backgroundColor: '#d97706',
-  },
-  resetButton: {
-    backgroundColor: '#687076',
-  },
-  skipButton: {
-    backgroundColor: '#9333ea',
-  },
-  endButton: {
-    backgroundColor: '#dc2626',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
+    gap: 10,
   },
 });

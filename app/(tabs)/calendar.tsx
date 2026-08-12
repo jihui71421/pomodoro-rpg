@@ -1,12 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFocusEffect } from '@react-navigation/native';
 
 import { addMonths } from '@/components/calendar/calendar-date';
 import { DayDetail } from '@/components/calendar/day-detail';
 import { MonthCalendar } from '@/components/calendar/month-calendar';
-import { ThemedView } from '@/components/themed-view';
+import { RPGColors, RPGMetrics } from '@/constants/theme';
 import { getTodayDateString, loadAppData, type StudyHistory } from '@/storage/app-storage';
 
 // 캘린더 탭 화면.
@@ -61,7 +62,9 @@ export default function CalendarScreen() {
   };
 
   return (
-    <ThemedView style={styles.screen}>
+    // 홈 화면(app/(tabs)/index.tsx)과 동일한 방식: SafeAreaView(top)로 상단 잘림을
+    // 막고, RPGColors/RPGMetrics로 같은 디자인 시스템을 재사용한다.
+    <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container}>
         <MonthCalendar
           year={year}
@@ -76,16 +79,20 @@ export default function CalendarScreen() {
 
         <DayDetail dateKey={selectedDate} record={history[selectedDate]} />
       </ScrollView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: RPGColors.background,
   },
   container: {
-    padding: 24,
-    gap: 24,
+    alignItems: 'center',
+    gap: RPGMetrics.panelGap,
+    paddingHorizontal: RPGMetrics.screenPadding,
+    paddingTop: RPGMetrics.screenPadding,
+    paddingBottom: RPGMetrics.screenPadding + 24,
   },
 });

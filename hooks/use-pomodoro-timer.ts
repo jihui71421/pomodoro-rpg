@@ -4,13 +4,14 @@ import { getTodayDateString, loadAppData, recordFocusCompletion, saveAppData, St
 import { applyExpGain, EXP_PER_FOCUS_SESSION, LevelProgress } from '@/storage/leveling';
 
 // 집중 시간(초) : 25분
-const FOCUS_SECONDS = 25 * 60;
-// 휴식 시간(초) : 5분
-const BREAK_SECONDS = 5 * 60;
+// export하는 이유: 홈 화면의 타이머 진행바(components/pomodoro/timer-display.tsx)가
+// "얼마나 진행됐는지" 비율을 계산하려면 전체 시간이 필요하기 때문이다. 값 자체는 그대로다.
+export const FOCUS_SECONDS = 25 * 60;
+// 휴식 시간(초) : 5분 (위와 같은 이유로 export)
+export const BREAK_SECONDS = 5 * 60;
 
-// [테스트용] 실제 1초가 지날 때마다 타이머를 몇 초씩 줄일지 정하는 값.
-// 원래 포모도로 속도로 되돌리려면 이 값을 1로 바꾸면 된다.
-const TEST_SECONDS_PER_TICK = 30;
+// 실제 1초가 지날 때마다 타이머를 몇 초씩 줄일지 정하는 값. 1이면 정상 속도.
+const TEST_SECONDS_PER_TICK = 1;
 
 // 타이머가 지금 "집중" 중인지 "휴식" 중인지를 나타내는 타입
 export type TimerMode = 'focus' | 'break';

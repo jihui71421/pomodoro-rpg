@@ -1,56 +1,61 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { formatTimeOfDay } from '@/storage/app-storage';
+import { HeartIcon } from '@/components/pomodoro/pixel-icons';
+import { PixelPanel } from '@/components/pomodoro/pixel-panel';
+import { RPGColors, RPGMetrics } from '@/constants/theme';
 
 type FocusSummaryProps = {
   // 오늘 완료한 집중 횟수
   completedFocusCount: number;
-  // 오늘 집중을 완료한 시각들 (ISO 8601 문자열 배열, 오래된 시각이 앞쪽)
+  // 오늘 집중을 완료한 시각들 (ISO 8601 문자열 배열). Figma Make 원본의 이 패널에는
+  // 시간 목록이 표시되지 않아서(하트 행 + 횟수만) 여기서는 쓰지 않지만, 데이터 자체는
+  // usePomodoroTimer가 계속 추적하고 캘린더 화면에서 사용한다.
   completedTimes: string[];
 };
 
-// 홈 화면 하단에 "오늘 집중 횟수"와 "완료 시간 목록"을 보여주는 컴포넌트.
-// 날짜가 바뀌면 usePomodoroTimer 훅이 이 값들을 자동으로 0/빈 배열로 초기화해준다.
-export function FocusSummary({ completedFocusCount, completedTimes }: FocusSummaryProps) {
-  return (
-    <ThemedView style={styles.container}>
-      <ThemedText style={styles.countText}>오늘 완료한 집중 횟수: {completedFocusCount}회</ThemedText>
+// 원본 세션당 최대로 그리는 하트 개수 (App.tsx의 MAX_SESSIONS)
+const MAX_SESSION_HEARTS = 8;
 
-      {/* 아직 완료한 집중이 없으면(completedTimes가 빈 배열) 목록 자체를 보여주지 않는다. */}
-      {completedTimes.length > 0 && (
-        <ThemedView style={styles.timesContainer}>
-          <ThemedText style={styles.timesTitle}>완료 시간</ThemedText>
-          {/* 완료한 순서(오래된 시각 -> 최신 시각) 그대로 한 줄씩 보여준다. */}
-          {completedTimes.map((isoString, index) => (
-            <ThemedText key={isoString} style={styles.timeItem}>
-              {index + 1}. {formatTimeOfDay(isoString)}
-            </ThemedText>
-          ))}
-        </ThemedView>
-      )}
-    </ThemedView>
+// Figma Make 원본(App.tsx)의 세션 카운터 패널을 그대로 옮긴 것.
+// 라벨(왼쪽) - 하트 행(가운데) - "N회"(오른쪽) 3분할 구조.
+export function FocusSummary({ completedFocusCount }: FocusSummaryProps) {
+  return (
+    <PixelPanel style={styles.container}>
+      <Text style={styles.label}>오늘 완료한 집중 횟수</Text>
+
+      <View style={styles.hearts}>
+        {Array.from({ length: MAX_SESSION_HEARTS }).map((_, index) => (
+          <HeartIcon key={index} full={index < completedFocusCount} />
+        ))}
+      </View>
+
+      <Text style={styles.count}>{completedFocusCount}회</Text>
+    </PixelPanel>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 8,
+    width: '100%',
+    maxWidth: 480,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  countText: {
-    fontWeight: '600',
+  label: {
+    color: RPGColors.textDim,
+    fontSize: 12,
   },
-  timesContainer: {
-    alignItems: 'center',
+  hearts: {
+    flexDirection: 'row',
     gap: 4,
+    alignItems: 'center',
   },
-  timesTitle: {
-    fontWeight: '600',
-  },
-  timeItem: {
-    opacity: 0.8,
+  count: {
+    color: RPGColors.gold,
+    fontWeight: '700',
+    fontSize: RPGMetrics.fontSize.heading - 1,
   },
 });
