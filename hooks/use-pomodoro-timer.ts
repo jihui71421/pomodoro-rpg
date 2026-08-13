@@ -60,6 +60,25 @@ export function usePomodoroTimer() {
     levelProgressRef.current = levelProgress;
   }, [levelProgress]);
 
+  // completedFocusCount/completedTimes(오늘의 기록)가 지금 "어느 날짜" 기준으로 쌓인 값인지
+  // 기억해두는 ref. 앱을 껐다 켜는 경우의 날짜 초기화는 storage/app-storage.ts의
+  // loadAppData()가 이미 처리해주지만, 앱을 계속 켜둔 채로(재시작 없이) 자정을 넘기면
+  // loadAppData()가 다시 호출되지 않으므로 이 ref로 직접 날짜 변경을 감지해야 한다.
+  const todayDateRef = useRef(getTodayDateString());
+
+  // 현재 날짜가 todayDateRef에 기억해둔 날짜와 다르면(=자정을 넘겼으면), 오늘의 집중 기록
+  // (completedFocusCount, completedTimes)만 0/빈 배열로 새로 시작한다.
+  // level/exp/history는 여기서 건드리지 않는다 — 날짜가 바뀌어도 계속 쌓여야 하는 값이기 때문이다.
+  // 이미 같은 날짜라면 아무것도 하지 않는다(가장 흔한 경우이므로 매번 비용이 거의 없다).
+  const resetTodayIfDateChanged = () => {
+    const currentDate = getTodayDateString();
+    if (todayDateRef.current === currentDate) return;
+
+    todayDateRef.current = currentDate;
+    setCompletedFocusCount(0);
+    setCompletedTimes([]);
+  };
+
   // 앱이 처음 실행될 때(마운트될 때) 한 번, AsyncStorage에 저장된 데이터를 불러온다.
   useEffect(() => {
     let isCancelled = false;
@@ -68,6 +87,10 @@ export function usePomodoroTimer() {
       // 불러오는 도중에 화면이 사라졌다면(unmount) 상태를 업데이트하지 않는다.
       if (isCancelled) return;
 
+      // loadAppData()가 반환하는 data.today.date는 이미 "오늘" 기준으로 정리된 값이므로
+      // (날짜가 바뀌었다면 loadAppData 내부에서 completedFocusCount도 0으로 초기화해서 준다),
+      // todayDateRef도 그 날짜로 맞춰서 이후의 자정 감지 기준으로 삼는다.
+      todayDateRef.current = data.today.date;
       setCompletedFocusCount(data.today.completedFocusCount);
       setCompletedTimes(data.today.completedTimes);
       setLevelProgress({ level: data.level, exp: data.exp });
@@ -108,6 +131,10 @@ export function usePomodoroTimer() {
     if (!isRunning) return undefined;
 
     const intervalId = setInterval(() => {
+      // 타이머가 돌아가는 동안(특히 자정 근처) 매초 날짜가 바뀌었는지도 함께 확인한다.
+      // 이렇게 하면 집중/휴식 타이머가 자정을 넘겨 계속 돌아가는 도중에도
+      // "오늘 집중 횟수"가 다음 완료 시점을 기다리지 않고 바로 초기화된다.
+      resetTodayIfDateChanged();
       // Math.max(0, ...)로 음수까지 줄어들지 않도록 막아준다.
       setSecondsLeft((prevSeconds) => Math.max(0, prevSeconds - TEST_SECONDS_PER_TICK));
     }, 1000);
@@ -122,6 +149,12 @@ export function usePomodoroTimer() {
     if (secondsLeft > 0) return;
 
     if (mode === 'focus') {
+      // 완료 횟수를 늘리기 "전에" 먼저 날짜가 바뀌었는지 확인한다.
+      // 예) 8/12에 3회 완료 후 앱을 끄지 않고 계속 켜둔 채 8/13이 되어 집중을 1회 더 완료하면,
+      // 이 줄이 없으면 completedFocusCount가 3에서 4가 되어버린다(전날 횟수가 섞임).
+      // 여기서 먼저 0으로 리셋해두면, 바로 아래의 +1이 적용되어 정확히 1이 된다.
+      resetTodayIfDateChanged();
+
       // 집중 시간이 끝났으므로 완료 횟수를 1 늘리고, 완료한 시각을 기록하고,
       // 경험치(EXP)를 얻은 뒤(필요하면 레벨업까지 처리) 휴식 모드로 전환한다.
       // 단, 휴식 타이머는 자동으로 시작하지 않는다.
