@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
+import { Character } from '@/components/pomodoro/character';
 import { HeartIcon, PotionIcon, StarIcon } from '@/components/pomodoro/pixel-icons';
-import { PixelCharacter } from '@/components/pomodoro/pixel-character';
 import { StatBar } from '@/components/pomodoro/stat-bar';
 import { RPGColors } from '@/constants/theme';
 import { EXP_TO_NEXT_LEVEL } from '@/storage/leveling';
@@ -9,8 +9,8 @@ import { EXP_TO_NEXT_LEVEL } from '@/storage/leveling';
 type CharacterPanelProps = {
   // 현재 레벨 안에서 쌓은 경험치. usePomodoroTimer의 실제 exp 값을 그대로 받는다.
   exp: number;
-  // 지금이 집중 시간인지(true) 휴식 시간인지(false). 캐릭터 색을 바꾸는 데 쓰인다.
-  isFocusMode: boolean;
+  // 현재 캐릭터 레벨. Figma Make 진화 단계 PNG를 고르는 데 쓰인다.
+  level: number;
 };
 
 // HP/MP는 아직 실제 게임 로직이 없으므로(이번 단계 범위 아님) 항상 가득 찬 값으로
@@ -22,7 +22,7 @@ const DECORATIVE_MP = 100;
 // Figma Make 원본에서 상태 바(HP→MP→EXP) + 캐릭터가 놓이는 순서 그대로.
 // 원본은 이 부분이 별도 패널이 아니라, 메인 패널(app/(tabs)/index.tsx가 감싸는
 // PixelPanel) 안에 그냥 속해 있는 하나의 섹션이라서 여기서는 자체 테두리를 두지 않는다.
-export function CharacterPanel({ exp, isFocusMode }: CharacterPanelProps) {
+export function CharacterPanel({ exp, level }: CharacterPanelProps) {
   return (
     <View style={styles.container}>
       <View style={styles.bars}>
@@ -32,7 +32,7 @@ export function CharacterPanel({ exp, isFocusMode }: CharacterPanelProps) {
       </View>
 
       <View style={styles.characterWrap}>
-        <PixelCharacter isFocusMode={isFocusMode} />
+        <Character level={level} />
       </View>
     </View>
   );

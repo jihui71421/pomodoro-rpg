@@ -76,7 +76,7 @@ export default function HomeScreen() {
 
         {/* 메인 패널: 상태바(HP/MP/EXP) + 캐릭터 + 타이머 + 버튼이 전부 이 안에 함께 들어간다. */}
         <PixelPanel style={styles.mainPanel}>
-          <CharacterPanel exp={exp} isFocusMode={isFocusMode} />
+          <CharacterPanel exp={exp} level={level} />
 
           <TimerDisplay isFocusMode={isFocusMode} secondsLeft={secondsLeft} />
 
