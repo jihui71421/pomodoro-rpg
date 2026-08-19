@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Character } from '@/components/pomodoro/character';
 import { HeartIcon, PotionIcon, StarIcon } from '@/components/pomodoro/pixel-icons';
+import { BubbleTrigger, SpeechBubble } from '@/components/pomodoro/speech-bubble';
 import { StatBar } from '@/components/pomodoro/stat-bar';
 import { RPGColors } from '@/constants/theme';
 import { EXP_TO_NEXT_LEVEL } from '@/storage/leveling';
@@ -11,6 +12,9 @@ type CharacterPanelProps = {
   exp: number;
   // 현재 캐릭터 레벨. Figma Make 진화 단계 PNG를 고르는 데 쓰인다.
   level: number;
+  // 시작/일시정지/리셋 버튼을 눌렀을 때 캐릭터 위에 잠깐 띄울 말풍선.
+  // null이면 아직 아무 버튼도 누르지 않은 상태(말풍선 없음).
+  bubble: BubbleTrigger | null;
 };
 
 // HP/MP는 아직 실제 게임 로직이 없으므로(이번 단계 범위 아님) 항상 가득 찬 값으로
@@ -22,7 +26,7 @@ const DECORATIVE_MP = 100;
 // Figma Make 원본에서 상태 바(HP→MP→EXP) + 캐릭터가 놓이는 순서 그대로.
 // 원본은 이 부분이 별도 패널이 아니라, 메인 패널(app/(tabs)/index.tsx가 감싸는
 // PixelPanel) 안에 그냥 속해 있는 하나의 섹션이라서 여기서는 자체 테두리를 두지 않는다.
-export function CharacterPanel({ exp, level }: CharacterPanelProps) {
+export function CharacterPanel({ exp, level, bubble }: CharacterPanelProps) {
   return (
     <View style={styles.container}>
       <View style={styles.bars}>
@@ -32,6 +36,7 @@ export function CharacterPanel({ exp, level }: CharacterPanelProps) {
       </View>
 
       <View style={styles.characterWrap}>
+        <SpeechBubble trigger={bubble} />
         <Character level={level} />
       </View>
     </View>
@@ -50,5 +55,7 @@ const styles = StyleSheet.create({
   },
   characterWrap: {
     marginBottom: 8,
+    // 말풍선(SpeechBubble)이 이 View를 기준으로 absolute 배치되므로 relative가 필요하다.
+    position: 'relative',
   },
 });

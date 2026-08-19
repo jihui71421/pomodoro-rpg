@@ -144,6 +144,21 @@ export function usePomodoroTimer() {
     return () => clearInterval(intervalId);
   }, [isRunning]);
 
+  // 위의 "1초마다" interval은 isRunning이 true일 때만 동작하므로, 타이머가 정지된 채로
+  // 화면이 떠 있는 동안 자정이 지나가면 날짜 변경을 감지할 방법이 없었다.
+  // (start/pause/reset/skipBreak/endStudy 중 어느 것도 날짜를 다시 확인하지 않는다.)
+  // isRunning과 무관하게 항상 동작하는 별도의 감시용 interval을 두어, 타이머가 멈춰있어도
+  // "오늘 집중 횟수"가 자정이 지나면 자동으로 초기화되도록 한다.
+  // 하루에 한 번뿐인 이벤트를 감지하는 용도라 1초 단위 정밀도는 필요 없으므로,
+  // 배터리 부담을 줄이기 위해 30초 주기로 확인한다.
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      resetTodayIfDateChanged();
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   // 남은 시간이 0이 되면 자동으로 모드를 전환하는 부분
   useEffect(() => {
     if (secondsLeft > 0) return;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +9,7 @@ import { LevelStatus } from '@/components/pomodoro/level-status';
 import { LevelUpModal } from '@/components/pomodoro/level-up-modal';
 import { PixelPanel } from '@/components/pomodoro/pixel-panel';
 import { SwordIcon } from '@/components/pomodoro/pixel-icons';
+import { BubbleTrigger } from '@/components/pomodoro/speech-bubble';
 import { TimerControls } from '@/components/pomodoro/timer-controls';
 import { TimerDisplay } from '@/components/pomodoro/timer-display';
 import { RPGColors, RPGMetrics } from '@/constants/theme';
@@ -38,6 +39,32 @@ export default function HomeScreen() {
   // '학습 종료' 확인 팝업을 보여줄지 여부.
   const [isEndConfirmVisible, setIsEndConfirmVisible] = useState(false);
 
+  // 시작/일시정지/리셋 버튼을 눌렀을 때 캐릭터 위에 잠깐 띄우는 말풍선.
+  // 타이머 로직과는 무관한 순수 연출용 상태라서 usePomodoroTimer 훅에는 넣지 않았다.
+  const [bubble, setBubble] = useState<BubbleTrigger | null>(null);
+  // 같은 문구를 연달아 띄워도(예: 리셋을 두 번 연속 누름) 애니메이션이 처음부터
+  // 다시 재생되도록, 누를 때마다 고유한 id를 하나씩 발급한다.
+  const bubbleIdRef = useRef(0);
+  const showBubble = (text: string) => {
+    bubbleIdRef.current += 1;
+    setBubble({ text, id: bubbleIdRef.current });
+  };
+
+  // 실제 시작/일시정지/리셋 로직(start/pause/reset)은 usePomodoroTimer가 그대로 담당하고,
+  // 여기서는 그 호출 앞에 말풍선 표시만 얹은 얇은 래퍼를 버튼에 연결한다.
+  const handleStartPress = () => {
+    showBubble('⚔ 집중 시작!');
+    start();
+  };
+  const handlePausePress = () => {
+    showBubble('Ⅱ 일시정지');
+    pause();
+  };
+  const handleResetPress = () => {
+    showBubble('↻ 리셋!');
+    reset();
+  };
+
   const isFocusMode = mode === 'focus';
 
   // 시작 버튼에 표시할 문구: 휴식 모드에서는 '휴식 시작'으로 다르게 보여준다.
@@ -53,9 +80,11 @@ export default function HomeScreen() {
     setIsEndConfirmVisible(false);
   };
 
-  // 팝업의 '종료' 버튼: 팝업을 닫고 실제로 학습 종료를 실행한다.
+  // 팝업의 '종료' 버튼: 팝업을 닫고, 시작/일시정지/리셋과 동일하게 말풍선을 띄운 뒤
+  // 실제로 학습 종료를 실행한다.
   const handleConfirmEndStudy = () => {
     setIsEndConfirmVisible(false);
+    showBubble('🛡 학습 종료!');
     endStudy();
   };
 
@@ -76,7 +105,7 @@ export default function HomeScreen() {
 
         {/* 메인 패널: 상태바(HP/MP/EXP) + 캐릭터 + 타이머 + 버튼이 전부 이 안에 함께 들어간다. */}
         <PixelPanel style={styles.mainPanel}>
-          <CharacterPanel exp={exp} level={level} />
+          <CharacterPanel exp={exp} level={level} bubble={bubble} />
 
           <TimerDisplay isFocusMode={isFocusMode} secondsLeft={secondsLeft} />
 
@@ -84,9 +113,9 @@ export default function HomeScreen() {
             isRunning={isRunning}
             isFocusMode={isFocusMode}
             startButtonLabel={startButtonLabel}
-            onStart={start}
-            onPause={pause}
-            onReset={reset}
+            onStart={handleStartPress}
+            onPause={handlePausePress}
+            onReset={handleResetPress}
             onSkipBreak={skipBreak}
             onEndStudyPress={handleEndStudyPress}
           />

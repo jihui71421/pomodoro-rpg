@@ -1,4 +1,10 @@
 import { Image, StyleSheet } from 'react-native';
+import Animated from 'react-native-reanimated';
+
+// Idle 모션의 위아래 이동 폭(px)과 한 번 왕복(위->아래->위)에 걸리는 시간(ms).
+// 폭을 작게, 시간을 길게 둘수록 "천천히 아주 살짝 떠다니는" 느낌이 된다.
+const FLOAT_DISTANCE = 4;
+const FLOAT_CYCLE_MS = 3600;
 
 type CharacterProps = {
   // 현재 캐릭터 레벨. 이 값에 따라 진화 단계별 PNG를 골라 보여준다.
@@ -27,11 +33,27 @@ function getCharacterAsset(level: number) {
 // 그대로 두고, 레벨에 따라 진화하는 홈 화면 캐릭터만 이 컴포넌트로 새로 분리했다.
 export function Character({ level }: CharacterProps) {
   return (
-    <Image
-      source={getCharacterAsset(level)}
-      style={styles.image}
-      resizeMode="contain"
-    />
+    // hello-wave.tsx와 동일하게 reanimated의 CSS-스타일 animationName을 사용한다.
+    // useSharedValue+withRepeat(명령형 워클릿 방식)은 웹 빌드에서 실제로 움직이지 않는
+    // 것을 확인했고, 이 프로젝트에서 이미 검증된 방식(hello-wave.tsx)이 바로 이 방식이라
+    // 그대로 따랐다. isRunning 등 어떤 prop과도 무관하게 항상 무한 반복된다.
+    <Animated.View
+      style={{
+        animationName: {
+          '0%': { transform: [{ translateY: 0 }] },
+          '50%': { transform: [{ translateY: -FLOAT_DISTANCE }] },
+          '100%': { transform: [{ translateY: 0 }] },
+        },
+        animationDuration: `${FLOAT_CYCLE_MS}ms`,
+        animationIterationCount: 'infinite',
+        animationTimingFunction: 'ease-in-out',
+      }}>
+      <Image
+        source={getCharacterAsset(level)}
+        style={styles.image}
+        resizeMode="contain"
+      />
+    </Animated.View>
   );
 }
 
