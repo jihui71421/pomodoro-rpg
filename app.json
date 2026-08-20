@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.pomodororpg.app",
       "adaptiveIcon": {
         "backgroundColor": "#0d0d1a",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,6 +44,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4422ca7a-0a4c-4123-a6f5-e70fc492f845"
+      }
     }
   }
 }
